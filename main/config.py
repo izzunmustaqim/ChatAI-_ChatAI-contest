@@ -1,30 +1,32 @@
-ChatAI_key = "OnGCTtBUL4T2TrL6osaPi6hFInUhGzMAE3BmAp7loukbAiHE"
-prompt_message_template = (
-                "#Input"
-                "{task_details_data}"
-                "{skill_set_data}"
- 
-                "#INSTRUCTIONS"
-                "As a project manager, Organize and Generate a Work Breakdown Structure (WBS) for the project. The input are the task details and the skill set of the team members."
-                "The output should include all members for each task. The output should be in the excel format:"
- 
-                "#Output Template"
-                "Role: {Role of member based on the input data of the task}"
-                "Task No."
-                "Task Description: {Task Description}"
-                "Assigned To: {Assigned to based on the input data of the task}"
-                "Progress: {Task completion based on the input data of the task}"
-                "Expected duration: {hours/days considered necessary to perform the task}"
-                "Plan Start: {Plan start date for the task: Date format}"
-                "Plan End: {Plan end date for the task: Date format}"
-                "Actual Start: {Actual Start date based on the input data of the task}"
-                "Actual End: {Actual End date based on the input data of the task}"
-            )
+prompt = (
+            "#Input"
+            "{task_details_data} "
+            "{skill_set_data}"
+
+            "#INSTRUCTIONS"
+            "As a project manager, create a WBS for the project. The input are the task details and the skill set of the team members."
+            "Please give in table format where each of the title should be the header"
+            "For high task priority assign first to senior developer then to middle developer"
+            "For medium task priority assign first to middle developer then junior developer" 
+            "For low task priority first assign to junior developer then middle developer"
+            "Please also consider the skills needed for each task with the member with high level skills for that particular need"
+            "The output should include all members for each task and one task for one person only"
+            "Please estimate the duration of each task without including it in the result. Then, set the start date and end date based on the duration."
+            "Please use the date range from the input data for start date = {start_date_str} and end date = {end_date_str} for each of the task."
+            "Please fully utilize the date but do not exceed the project's end date at {end_date_str}"
+            "It should consists of:"
+                
+            "| Item No. | Task Description: {task_description} | Assigned to: {assigned_to} | Progress: {progress} | Plan Start date: {plan_start_date} | Plan End date: {plan_end_date} |\n"
+            # "| Item No. | Task Description: {Task Description} | Assigned to: {Assigned to based on the input data of the task} | Progress: {Progress of the task either To do/In progress/Waiting for Review/Done, default is To do} | Plan Start date: {Start date based on the input data of the task} | Plan End date: {End date based on the input data of the task} |\n"
+        )
 error_message = {
     "FileNotFoundError": "The file was not found. Please check the file path and try again.",
     "EmptyDataError": "The file is empty. Please provide a valid Excel file with data.",
     "ParserError": "There was a problem parsing the file. Please ensure the file is a valid Excel file.",
     "APIKeyError": "The API Key file was not found. Please check the file path and try again.",
     "FailReadError": "Failed to read Excel file: {error_message}",
+    "APIEmptyField": "API Key cannot be empty",
+    "InvalidKeyError": "Invalid API Key format. Please enter a valid API key format: \n\n48 character long and it contains a mix of uppercase letters, lowercase letters, and digits",
+    "FullWidthCharacterError": "API Key contains full-width characters, which are not allowed.",
     "GeneralError": "An error occurred: {error_message}"
 }
