@@ -1,12 +1,12 @@
 import json
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from tkinter import ttk
 import pandas as pd
 import requests  # Import pandas
 import pandas as pd  # Import pandas
 import config   # Import the config file
 import webbrowser
-from tkcalendar import DateEntry
 import re
 
 class Application(tk.Frame):
@@ -55,12 +55,21 @@ class Application(tk.Frame):
 
             tk.Button(self, text="Start", command=self.main, width=10).grid(row=8, column=1, padx=10, pady=10, sticky='e')
             tk.Button(self, text="Cancel", command=self.master.destroy, width=10).grid(row=8, column=2, padx=10, pady=10, sticky='w')
-        
-            # Status label to show process completion
-            self.status_label = tk.Label(self, text="")
-            self.status_label.grid(row=9, column=0, columnspan=3, padx=10, pady=10) 
-        
     
+    def create_result_section(self):
+        # Add a separator
+        self.separator = ttk.Separator(self, orient='horizontal')
+        self.separator.grid(row=9, column=0, columnspan=3, sticky='we', pady=10)
+
+        # Result section
+        self.result_section = tk.Label(self, text="Result: ")
+        self.result_section.grid(row=10, column=0, columnspan=3, padx=5, pady=5)
+
+        # Status label to show process completion
+        self.status_label = tk.Label(self, text="Processing, please wait...")
+        self.status_label.grid(row=11, column=0, columnspan=3, padx=10, pady=10)
+        self.status_label.update_idletasks()  # Force the GUI to update
+
     def browse_file(self, entry, label):
         file_types = [("Excel files", "*.xlsx *.xls")]
         file_path = filedialog.askopenfilename(filetypes=file_types)
@@ -115,9 +124,8 @@ class Application(tk.Frame):
     #Send data to ChatAI for analysis
     def send_data_to_chatai(self):
         try:
-
-            self.status_label.config(text="Processing, please wait...")
-            self.status_label.update_idletasks()  # Force the GUI to update
+            # Call the method to create the status section
+            self.create_result_section()
 
             #To extract only the start date and end date of the project 
             start_date = self.task_details_data.iloc[1,2]
@@ -187,7 +195,7 @@ class Application(tk.Frame):
             print(ve)
             messagebox.showerror("Error", str(ve))
         finally:
-            self.status_label.config(text="Process completed")
+            self.status_label.config(text="Process has completed successfully. You may download the WBS file using the download button below.")
 
     def validate_api_key(self, api_key):
         pattern = r'^[A-Za-z0-9]{48}$'        
