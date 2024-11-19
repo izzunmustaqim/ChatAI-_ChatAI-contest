@@ -66,9 +66,17 @@ class Application(tk.Frame):
         self.result_section.grid(row=10, column=0, columnspan=3, padx=5, pady=5)
 
         # Status label to show process completion
-        self.status_label = tk.Label(self, text="Processing, please wait...")
-        self.status_label.grid(row=11, column=0, columnspan=3, padx=10, pady=10)
+        self.status_label = tk.Label(self, text="Processing, please wait...", wraplength=400)
+        self.status_label.grid(row=11, column=0, columnspan=3, padx=10, pady=5)
         self.status_label.update_idletasks()  # Force the GUI to update
+
+    def remove_result_section(self):
+        if hasattr(self, 'separator'):
+            self.separator.grid_forget()
+        if hasattr(self, 'result_section'):
+            self.result_section.grid_forget()
+        if hasattr(self, 'status_label'):
+            self.status_label.grid_forget()
 
     def browse_file(self, entry, label):
         file_types = [("Excel files", "*.xlsx *.xls")]
@@ -124,9 +132,12 @@ class Application(tk.Frame):
     #Send data to ChatAI for analysis
     def send_data_to_chatai(self):
         try:
+            # if repeat the process, clear the result section first
+            self.remove_result_section()
+
             # Call the method to create the status section
             self.create_result_section()
-
+            
             #To extract only the start date and end date of the project 
             start_date = self.task_details_data.iloc[1,2]
             end_date = self.task_details_data.iloc[2,2]
