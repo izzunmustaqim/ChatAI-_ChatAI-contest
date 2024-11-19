@@ -8,6 +8,9 @@ import config   # Import the config file
 import webbrowser
 from tkcalendar import DateEntry
 import re
+import io
+import openpyxl
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 class Application(tk.Frame):
     def __init__(self, master=None):
@@ -172,6 +175,7 @@ class Application(tk.Frame):
 
                 # Extract the content (only the wbs result)
                 content = analysis_result['choices'][0]['message']['content']
+                self.create_wbs(content)
                 print(content)
 
             except json.JSONDecodeError:
@@ -202,6 +206,42 @@ class Application(tk.Frame):
         else:
             messagebox.showerror("Error", config.error_message["InvalidKeyError"])
             return None
+        
+    def create_wbs(self, content):
+        # Extract the markdown table using regular expression
+        table_pattern = re.compile(r'\|.*\|')
+        markdown_table = '\n'.join(table_pattern.findall(content))
+
+        # Convert the Markdown table to a DataFrame
+        data = io.StringIO(markdown_table)
+        df = pd.read_csv(data, sep="|", skipinitialspace=True, engine='python', skiprows=2)
+
+        # Drop the first and last columns which are empty due to the table format
+        df = df.drop(df.columns[[0, -1]], axis=1)
+        print(df)
+
+        # Load the Excel template
+        template_path = 'JDU-WBS_Template_Samples.xlsx'
+        wb = openpyxl.load_workbook(template_path)
+        ws = wb.active  # or specify the sheet name with wb['SheetName']
+
+        # # Write the DataFrame to the Excel template starting at cell A1
+        # for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
+        #     for c_idx, value in enumerate(row, 9):
+        #         ws.cell(row=r_idx, column=c_idx, value=value)
+
+         # Write the DataFrame to the Excel template starting at row 9
+        start_row = 9
+        for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start_row):
+            for c_idx, value in enumerate(row, 1):
+                ws.cell(row=r_idx, column=c_idx, value=value)
+
+        # Save the modified template as a new file
+        output_path = 'modified_template.xlsx'
+        wb.save(output_path)
+
+        print(f"DataFrame saved to {output_path}")
+
 
 root = tk.Tk()
 root.title("WBS Enhancement")
