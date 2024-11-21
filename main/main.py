@@ -11,6 +11,7 @@ import re
 import io
 import openpyxl
 from openpyxl.utils.dataframe import dataframe_to_rows
+from datetime import datetime
 
 class Application(tk.Frame):
     def __init__(self, master=None):
@@ -175,7 +176,7 @@ class Application(tk.Frame):
 
                 # Extract the content (only the wbs result)
                 content = analysis_result['choices'][0]['message']['content']
-                self.create_wbs(content)
+                self.create_wbs(content, start_date)
                 print(content)
 
             except json.JSONDecodeError:
@@ -207,17 +208,27 @@ class Application(tk.Frame):
             messagebox.showerror("Error", config.error_message["InvalidKeyError"])
             return None
         
-    def create_wbs(self, content):
+    def create_wbs(self, content, start_date):
         # Extract the markdown table using regular expression
         table_pattern = re.compile(r'\|.*\|')
         markdown_table = '\n'.join(table_pattern.findall(content))
 
         # Convert the Markdown table to a DataFrame
         data = io.StringIO(markdown_table)
-        df = pd.read_csv(data, sep="|", skipinitialspace=True, engine='python', skiprows=2)
+        df = pd.read_csv(data, sep="|", skipinitialspace=True, engine='python')
+
+        # Remove the first row
+        df = df.iloc[1:]
 
         # Drop the first and last columns which are empty due to the table format
         df = df.drop(df.columns[[0, -1]], axis=1)
+
+        # Convert to datetime and change format
+        df.iloc[:, 4] = pd.to_datetime(df.iloc[:, 4]).dt.strftime('%m/%d/%Y')
+        df.iloc[:, 5] = pd.to_datetime(df.iloc[:, 5]).dt.strftime('%m/%d/%Y')
+
+        # remove the header from an existing Pandas DataFrame
+        df = df.rename(columns=df.iloc[0]).drop(df.index[0])
         print(df)
 
         # Load the Excel template
@@ -225,10 +236,12 @@ class Application(tk.Frame):
         wb = openpyxl.load_workbook(template_path)
         ws = wb.active  # or specify the sheet name with wb['SheetName']
 
-        # # Write the DataFrame to the Excel template starting at cell A1
-        # for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
-        #     for c_idx, value in enumerate(row, 9):
-        #         ws.cell(row=r_idx, column=c_idx, value=value)
+        # Write the variable into cell
+        ws['B2'] = "Details_WBS.xlsx"
+        ws['B6'] = start_date
+        # Set current_date to the current date
+        current_date = datetime.now().date()
+        ws['G2'] = current_date
 
          # Write the DataFrame to the Excel template starting at row 9
         start_row = 9
@@ -237,7 +250,7 @@ class Application(tk.Frame):
                 ws.cell(row=r_idx, column=c_idx, value=value)
 
         # Save the modified template as a new file
-        output_path = 'modified_template.xlsx'
+        output_path = 'Details_WBS.xlsx'
         wb.save(output_path)
 
         print(f"DataFrame saved to {output_path}")
