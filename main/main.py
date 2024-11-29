@@ -15,6 +15,7 @@ import io
 import openpyxl
 from openpyxl.utils.dataframe import dataframe_to_rows
 from datetime import datetime
+from threading import Thread  # Import Thread class
 
 class Application(tk.Frame):
     def __init__(self, master=None):
@@ -60,7 +61,7 @@ class Application(tk.Frame):
             
             text_widget.config(state=tk.DISABLED)
 
-            tk.Button(self, text="Start", command=self.main, width=10).grid(row=8, column=1, padx=10, pady=10, sticky='e')
+            tk.Button(self, text="Start", command=self.button_starter, width=10).grid(row=8, column=1, padx=10, pady=10, sticky='e')
             tk.Button(self, text="Cancel", command=self.master.destroy, width=10).grid(row=8, column=2, padx=10, pady=10, sticky='w')
     
     def create_result_section(self):
@@ -109,6 +110,10 @@ class Application(tk.Frame):
 
     def open_url(self, url):
         webbrowser.open_new(url)
+
+    def button_starter(self):
+            t = Thread(target=self.main)
+            t.start()
     
     def main(self):
         self.api_key = self.validate_api_key(self.api_key_entry.get())
@@ -165,7 +170,7 @@ class Application(tk.Frame):
             print(end_date)
  
             # Define the API endpoint and hardcoded prompt
-            api_endpoint = "https://ai-foundation-api.app/ai-foundation/chat-ai/gpt4"
+            api_endpoint = "https://api.ai-service.global.fujitsu.com/ai-foundation/chat-ai/gemini/pro:generateContent" 
             prompt = config.prompt.format(
                             task_details_data=self.task_details_data.to_json(),
                             skill_set_data=self.skill_set_data.to_json(),
@@ -184,16 +189,20 @@ class Application(tk.Frame):
             }
  
             payload = {
-                "messages": [
+                "contents": [
                 {
                     "role": "user",
-                    "content": prompt,
+                    "parts": [
+                        {
+                            "text": prompt
+                        }
+                    ]
                 }
                 ]
             }
            
             # Send the POST request
-            response = requests.post(api_endpoint, json=payload, headers=headers)
+            response = requests.post(api_endpoint, headers=headers, json=payload)
             response.raise_for_status()  # Raise an exception for HTTP errors
            
             # Check the response
@@ -202,7 +211,8 @@ class Application(tk.Frame):
                 #print("Analysis Result:", analysis_result)
  
                 # Extract the content (only the wbs result)
-                content = analysis_result['choices'][0]['message']['content']
+            
+                content = analysis_result['candidates'][0]['content']['parts'][0]['text']
                 self.create_wbs(content, start_date)
                 print(content)
  
