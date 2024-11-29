@@ -15,6 +15,7 @@ import io
 import openpyxl
 from openpyxl.utils.dataframe import dataframe_to_rows
 from datetime import datetime
+from threading import Thread  # Import Thread class
 
 class Application(tk.Frame):
     def __init__(self, master=None):
@@ -60,7 +61,7 @@ class Application(tk.Frame):
             
             text_widget.config(state=tk.DISABLED)
 
-            tk.Button(self, text="Start", command=self.main, width=10).grid(row=8, column=1, padx=10, pady=10, sticky='e')
+            tk.Button(self, text="Start", command=self.button_starter, width=10).grid(row=8, column=1, padx=10, pady=10, sticky='e')
             tk.Button(self, text="Cancel", command=self.master.destroy, width=10).grid(row=8, column=2, padx=10, pady=10, sticky='w')
     
     def create_result_section(self):
@@ -109,6 +110,10 @@ class Application(tk.Frame):
 
     def open_url(self, url):
         webbrowser.open_new(url)
+
+    def button_starter(self):
+            t = Thread(target=self.main)
+            t.start()
     
     def main(self):
         self.api_key = self.validate_api_key(self.api_key_entry.get())
