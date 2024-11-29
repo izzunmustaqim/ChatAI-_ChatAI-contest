@@ -23,6 +23,7 @@ error_message = {
     "FileNotFoundError": "The file was not found. Please check the file path and try again.",
     "EmptyDataError": "The file is empty. Please provide a valid Excel file with data.",
     "ParserError": "There was a problem parsing the file. Please ensure the file is a valid Excel file.",
+    "FileTooBig": "The file was to big. Please check the file and try again.",
     "APIKeyError": "The API Key file was not found. Please check the file path and try again.",
     "FailReadError": "Failed to read Excel file: {error_message}",
     "APIEmptyField": "API Key cannot be empty",
