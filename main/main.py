@@ -239,9 +239,12 @@ class Application(tk.Frame):
                 print("Response content:", response.text)
  
         except requests.exceptions.RequestException as e:
-            print("Failed to get a response from ChatAI. Status code:", response.status_code)
-            print("Response content:", response.text)
-            messagebox.showerror("Error", f"Failed to send data to ChatAI: {e}")
+            if "Too Large" in str(e):
+                messagebox.showerror("Error", config.error_message["FileTooBig"])
+            else:
+                print("Failed to get a response from ChatAI. Status code:", response.status_code)
+                print("Response content:", response.text)
+                messagebox.showerror("Error", f"Failed to send data to ChatAI: {e}")
 
         except ValueError as ve:
             print(ve)
