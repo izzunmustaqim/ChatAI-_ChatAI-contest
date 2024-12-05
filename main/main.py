@@ -71,11 +71,12 @@ class Application(tk.Frame):
         tk.Label(self, text="Project Duration").grid(row=9, column=0, padx=10, pady=10, sticky='w')
         #Start date
         tk.Label(self, text="Start:").grid(row=9, column=1, padx=8, pady=10, sticky='w')
-        self.start_date_entry = DateEntry(self, width=12, background='darkblue', foreground='white', borderwidth=2, mindate=datetime.now(), date_pattern='yyyy-MM-dd')
+        self.start_date_entry = DateEntry(self, width=12, background='darkblue', foreground='white', borderwidth=2, mindate=datetime.now(), date_pattern='MM/dd/yyyy')
+        #print(self.start_date_entry.get_date()) --> to get the date value self.start_date_entry.get_date()
         self.start_date_entry.grid(row=9, column=1, padx=(50,0), pady=10, sticky='w')
         #End date
         tk.Label(self, text="End:").grid(row=9, column=1, padx=(160,0), pady=10, sticky='w')
-        self.end_date_entry = DateEntry(self, width=12, background='darkblue', foreground='white', borderwidth=2, mindate=datetime.now(), date_pattern='yyyy-MM-dd')
+        self.end_date_entry = DateEntry(self, width=12, background='darkblue', foreground='white', borderwidth=2, mindate=datetime.now(), date_pattern='MM/dd/yyyy')
         self.end_date_entry.grid(row=9, column=1, padx=(200,0), pady=10, sticky='w')
 
         # Start and Cancel button
