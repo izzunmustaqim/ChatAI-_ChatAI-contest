@@ -170,6 +170,7 @@ class Application(tk.Frame):
                         print("Files in the selected folder:")
                         for file_path in self.ss_folder_file:
                             entry.insert(tk.END, file_path + "\n")
+                            print(file_path) 
 
                     entry.config(state=tk.DISABLED)
                 else:
@@ -192,32 +193,27 @@ class Application(tk.Frame):
         if not self.api_key:
             return False
         
-        # Compare excel with template
-        if self.compare_excel(self.skillset_file, 'MEMBERS_SKILLSET.xlsx') == False:
-            return
-        if self.compare_excel(self.task_details_file, 'Task Details Sample.xlsx') == False:
-            return
-  
-        # Call read file function
+        # # Compare excel with template
+        # if self.compare_excel(self.skillset_file, 'MEMBERS_SKILLSET.xlsx') == False:
+        #     return
+        
+        # Read skillset data
         self.skill_set_data = self.read_file(self.skillset_file, 3, None)
         if self.skill_set_data is None:
             return  # Stop the process if the file is not found or an error occurred
 
-        self.task_details_data = self.read_file(self.task_details_file, 1, "B:E")
-        if self.task_details_data is None:
-            return 
-        
-        # Read all files in the selected folder
-        self.task_details_data = []
-        for file_path in self.selected_folder_file:
-            file_data = self.read_file(file_path, 1, None)
-            if file_data is not None:
-                print(file_data)
-                # self.task_details_data.append(file_data)
-            else:
+        # If the file type is Task Details, read the file
+        if self.file_type.get() == "Task Details":
+            # Read task details data
+            if self.compare_excel(self.task_details_file, 'Task Details Sample.xlsx') == False:
                 return
-        
-        self.send_data_to_chatai()
+            self.task_details_data = self.read_file(self.task_details_file, 1, "B:E")
+            if self.task_details_data is None:
+                return
+        else:
+            self.read_ss_folder_files()
+             
+        # self.send_data_to_chatai()
     
     def compare_excel(self, file, template_file): 
         try:
@@ -291,6 +287,206 @@ class Application(tk.Frame):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to read Excel file: {e}")
             return None
+
+    def read_ss_folder_files(self):
+        self.selected_folder_file = []
+        
+        # Variables to store file paths based on keywords
+        application_detailed_specification_files = []
+        event_process_diagram_history_files = []
+        screen_layout_files = []
+        
+        for file_path in self.ss_folder_file:
+            if "Application Detailed Specification" in file_path:
+                application_detailed_specification_files.append(file_path)
+            elif "Event Process Sequence Diagram History" in file_path:
+                 event_process_diagram_history_files.append(file_path)
+            elif "Screen Layout" in file_path:
+                screen_layout_files.append(file_path)
+        
+        # Print the results
+        print("\nScreen Layout Files:")
+        for file in screen_layout_files:
+            # call function read screen layout files
+            pass
+
+        print("Application Detailed Specification Files:")
+        for file in application_detailed_specification_files:
+            # print(file)
+            # call function read application detailed specification files
+            app_detailed_spec_data = self.read_application_detailed_specification_files(file)
+            app_detailed_spec_data_converted_json = self.convert_app_detailed_spec_data(app_detailed_spec_data)
+            print(app_detailed_spec_data_converted_json)
+
+        # print("\nEvent Process Sequence Diagram History Files:")
+        # for file in event_process_diagram_history_files:
+        #     # call function read event process diagram history files
+        #     pass
+        
+    def read_application_detailed_specification_files(self, file_path):
+        # Read application detailed specification files
+        try:
+            workbook = load_workbook(filename=file_path, data_only=True) # Load the workbook
+            sheet_names = [] # Initialize an empty list for sheet names
+
+            # Iterate through each worksheet in the workbook
+            for sheet in workbook.worksheets:
+                sheet_names.append(sheet.title)
+
+            # Check if the file is an Application Detailed Specification file
+            self.check_file_validity(sheet_names, workbook, file_path)
+            
+            sheet = workbook[sheet_names[2]] # Select the third sheet
+            application_detailed_spec_data = []
+
+            # Define the start and end keywords
+            end_keyword = ['メンバ定義\n/Member Definition','メンバ名\n/Member Name']
+            start_keywords = ['説明\n/Description', '引数\n/Argument', '戻り値\n/Return Value', 'テーブル/ファイル\n/Table/File']
+            start_found = False     # Initialize flags
+
+            # Iterate through rows and print rows between the keywords
+            for row in sheet.iter_rows(values_only=True):
+                filtered_row = [cell for cell in row if cell is not None]
+                # print(filtered_row)
+                if any(start_keyword in str(cell) for start_keyword in start_keywords for cell in filtered_row):
+                    start_found = True
+                if any(end_keyword in str(cell) for end_keyword in end_keyword for cell in filtered_row):
+                    start_found = False
+                if start_found:
+                    if filtered_row != []:
+                        # print(filtered_row)
+                        application_detailed_spec_data.append(filtered_row)
+            return application_detailed_spec_data
+        
+        except FileNotFoundError:
+            messagebox.showerror("Error", config.error_message["FileNotFoundError"])
+            return None
+        except pd.errors.EmptyDataError:
+            messagebox.showerror("Error", config.error_message["EmptyDataError"])
+            return None
+        except pd.errors.ParserError:
+            messagebox.showerror("Error", config.error_message["ParserError"])
+            return None
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to read Excel file: {e}")
+            return None
+        
+    def check_file_validity(self, sheet_names, workbook, file_path):
+        file_size = os.path.getsize(file_path)
+        max_mb = 2000000 * 1024 * 1024  # 2M MB in bytes
+        if file_size > max_mb:
+            raise ValueError("The file is too large. Please upload a smaller file size")
+            # print(f"File size: {file_size} bytes")
+        for sheet_name in sheet_names:
+                sheet_temp = workbook[sheet_name]
+                if sheet_temp.max_row == 1 and sheet_temp.max_column == 1 and sheet_temp.cell(row=1, column=1).value is None:
+                    raise ValueError("The file is empty")
+                for row in sheet_temp.iter_rows(values_only=True):
+                    filtered_row = [cell for cell in row if cell is not None]
+                    if filtered_row == []:
+                        raise ValueError("The file is empty")
+                    elif "Screen Layout" in file_path and '画面レイアウト\n/Screen Layout' not in filtered_row:
+                        raise ValueError("The file is not a Screen Layout file")
+                    elif "Application Detailed Specification" in file_path and "アプリケーション詳細仕様\n/Application Detailed Specification" not in filtered_row:
+                        raise ValueError("The file is not an Application Detailed Specification file")
+                    elif "Event Process Sequence Diagram History" in file_path and "イベント処理シーケンス図履歴\n/Event Process Sequence Diagram History" not in filtered_row:
+                        raise ValueError("The file is not an Event Process Sequence Diagram History file")
+                    else:
+                        return True
+        
+    def convert_app_detailed_spec_data(self, app_detailed_spec_data):
+        is_description = False
+        is_argument = False
+        is_return_value = False
+        is_table_file = False
+        description = []
+        argument = []
+        return_value = []
+        table_file = []
+        keywords = ['説明\n/Description', '引数\n/Argument', '戻り値\n/Return Value', 'テーブル/ファイル\n/Table/File']
+
+        for row in app_detailed_spec_data:
+            if (keywords[0] in row and '名称\n/Name' not in row) or is_description:
+                # Extract the description
+                is_table_file = False
+                if keywords[1] not in row:
+                    is_description = True
+                    if len(row) == 2:
+                        description.append(row[1])
+                    elif len(row) == 1 and row[0] != '説明\n/Description':
+                        description.append(row[0])
+
+            if keywords[1] in row or is_argument:
+                # Extract the argument
+                if keywords[2] not in row:
+                    is_description = False
+                    is_argument = True
+                    if len(row) == 4:
+                        if '名称\n/Name' not in row:
+                            argument.append(row)
+
+            if keywords[2] in row or is_return_value:
+                # Extract the return value
+                if keywords[3] not in row:
+                    is_argument = False
+                    is_return_value = True
+                    if len(row) == 4:
+                        if '名称\n/Name' not in row:
+                            return_value.append(row)
+                
+            if keywords[3] in row or is_table_file:
+                # Extract the table/file
+                is_return_value = False
+                is_table_file = True
+                if len(row) == 7:
+                    table_file.append(row)
+        
+        # Initialize the JSON structure
+        app_detailed_spec_json = {
+            "Description": [],
+            "Argument": [],
+            "Return_value": [],
+            "Table or File use": []
+        }
+
+        for row in description:
+            if len(row) > 1:
+                app_detailed_spec_json["Description"].append(row)
+
+        for row in argument:
+            if len(row) > 1:
+                app_detailed_spec_json["Argument"].append({
+                    "No": row[0],
+                    "Name": row[1],
+                    "Type": row[2],
+                    "Description": row[3]
+                })
+        
+        for row in return_value:
+            if len(row) > 1:
+                app_detailed_spec_json["Return_value"].append({
+                    "No": row[0],
+                    "Name": row[1],
+                    "Type": row[2],
+                    "Description": row[3]
+                })
+        
+        for row in table_file:
+            if len(row) > 1:
+                app_detailed_spec_json["Table or File use"].append({
+                    "No": row[0],
+                    "Table_ID/File_ID": row[1],
+                    "Table_Name/File_Name": row[2],
+                    "CRUD Access for C": row[3],
+                    "CRUD Access for R": row[4],
+                    "CRUD Access for U": row[5],
+                    "CRUD Access for D": row[6]
+                })
+        
+        # Convert to JSON string for readability
+        json_string = json.dumps(app_detailed_spec_json, indent=4, ensure_ascii=False)
+        # print(json_string)
+        return json_string
 
     #Send data to ChatAI for analysis
     def send_data_to_chatai(self):
