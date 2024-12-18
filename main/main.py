@@ -376,17 +376,6 @@ class Application(tk.Frame):
     
     def event_Process_Sequence_Diagram_History_Files(self, file_path):
         try:
-            # # Specify the sheet name
-            # sheet = '設計'
-            # # Load the workbook and the specific sheet
-            # workbook = load_workbook(file_path, data_only=True)
-            
-            # if sheet not in workbook.sheetnames:
-            #     print(f"Sheet '{sheet}' not found!")
-            #     return
-            
-            # sheet = workbook[sheet]
-
             sheet_names = [] # Initialize an empty list for sheet names
             workbook = load_workbook(file_path, data_only=True)
 
@@ -399,32 +388,6 @@ class Application(tk.Frame):
             # self.check_file_validity(sheet_names, workbook, file_path)
             
             sheet = workbook[sheet_names[2]] # Select the third sheet
-
-            # def encode_image(img):
-            #     with open(img, "rb") as image_file:
-            #         return base64.b64encode(image_file.read()).decode('utf-8')
-
-            # def describe_image(img):
-            #     encoded_image = encode_image(img)
-
-            #     headers = {
-            #             "Content-type": "application/json",
-            #             "api-key": "PzGY0O7MKAUEoU82AAfBiBLfvp3GT7GvGVA8vn7so6hAm2jG"
-            #         }
-                
-            #     data = {
-            #             "messages": [
-            #                 {"role": "user", "content": [
-            #                 {"type": "text", "text": "Please describe the image below."},
-            #                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{encoded_image}"}}
-            #             ]}
-            #             ]
-            #         }
-                
-            #     response = requests.post("https://ai-foundation-api.app/ai-foundation/chat-ai/gpt4", headers=headers, json=data)
-            #     response_json = response.json()
-            #     # print(response_json)
-            #     return response_json["choices"][0]["message"]["content"]
 
             # Extract images from the Excel file
             images = []
