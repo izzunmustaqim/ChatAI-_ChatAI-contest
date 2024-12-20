@@ -5,6 +5,8 @@ prompt_list_task = (
  
                         "#INSTRUCTIONS"
                         "As a project manager, create the task details for the project. The inputs are the screen layout details and Application Detailed Specification Files."
+                        "Given the image flowchart for reference of the whole structure of the application"
+                        # "Please describe the flow chart and then give the task details as below"
                         "Please provide the information in table format as below"
                         "Please sort the task considering logic that the screen should have completed first then the function can be developed"
                         "If any of the task is related or can be grouped as one, you may do so"

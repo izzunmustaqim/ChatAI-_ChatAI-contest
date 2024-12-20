@@ -33,6 +33,7 @@ class Application(tk.Frame):
         self.ss_folder_file = []
         self.screen_layout_json = None
         self.app_detailed_spec_data_converted_json = None
+        self.flowchart_image_path = None
 
     def create_widgets(self):
         # Add a new entry for the API key
@@ -135,7 +136,9 @@ class Application(tk.Frame):
         if hasattr(self, 'download_button'):
             self.download_button.grid_remove()
 
-    def browse_file(self, entry, label):   
+    def browse_file(self, entry, label): 
+        # if the process is repeated - clear the list first
+        self.ss_folder_file.clear()
         selected_file_type = self.file_type.get()
         file_types = [("Excel files", "*.xlsx *.xls")]
         try:
@@ -215,13 +218,13 @@ class Application(tk.Frame):
                 return
         else:
             self.read_ss_folder_files()
+            self.request_task_details()
 
         # print(f"Result in main :")
         # print(self.screen_layout_json)
         # print('---------------------------------------------------------')
         # print(self.app_detailed_spec_data_converted_json)
 
-        self.request_task_details()
         # self.send_data_to_chatai()
     
     def compare_excel(self, file, template_file): 
@@ -333,8 +336,8 @@ class Application(tk.Frame):
         print("\nEvent Process Sequence Diagram History Files:")
         for file in event_process_diagram_history_files:
             # call function read event process sequence diagram history files
-            event_Process_Sequence_Diagram_History_Files = self.event_Process_Sequence_Diagram_History_Files(file)
-            print(event_Process_Sequence_Diagram_History_Files)
+            self.flowchart_image_path = self.event_Process_Sequence_Diagram_History_Files(file)
+            # print(flowchart_image)
         
     def read_screen_layout(self, file, sheetName, keywordsHeader):
         try:
@@ -450,7 +453,7 @@ class Application(tk.Frame):
                 print(sheet.title)
 
             # # Check if the file is an Application Detailed Specification file
-            # self.check_file_validity(sheet_names, workbook, file_path)
+            self.check_file_validity(sheet_names, workbook, file_path)
             
             sheet = workbook[sheet_names[2]] # Select the third sheet
 
@@ -466,10 +469,10 @@ class Application(tk.Frame):
                 img.save(f'image_{idx + 1}.png')
 
             image_path = "image_1.png"
-            description = self.describe_image(image_path)
+            #description = self.describe_image(image_path)
             # Delete the file
-            os.remove(image_path)
-            return description
+            # os.remove(image_path)
+            return image_path
             # print(description)
 
         except FileNotFoundError:
@@ -550,7 +553,7 @@ class Application(tk.Frame):
                         raise ValueError("The file is not a Screen Layout file")
                     elif "Application Detailed Specification" in file_path and "アプリケーション詳細仕様\n/Application Detailed Specification" not in filtered_row:
                         raise ValueError("The file is not an Application Detailed Specification file")
-                    elif "Event Process Sequence Diagram History" in file_path and "イベント処理シーケンス図履歴\n/Event Process Sequence Diagram History" not in filtered_row:
+                    elif "Event Process Sequence Diagram History" in file_path and "イベント処理シーケンス図\n/Event Process Sequence Diagram" not in filtered_row:
                         raise ValueError("The file is not an Event Process Sequence Diagram History file")
                     else:
                         return True
@@ -654,40 +657,46 @@ class Application(tk.Frame):
             # Call the method to create the status section
             self.create_result_section()
 
-            # Define the API endpoint and hardcoded prompt
-            api_endpoint = "https://api.ai-service.global.fujitsu.com/ai-foundation/chat-ai/gemini/pro:generateContent" 
-            prompt = config.prompt_list_task.format(
-                            screen_layout_json=self.screen_layout_json,
-                            app_detailed_spec_data_converted_json=self.app_detailed_spec_data_converted_json
-                        )
- 
+            encoded_image = self.encode_image(self.flowchart_image_path)
+    
             headers = {
                 "Content-type": "application/json",
                 "api-key": self.api_key
             }
+            prompt = config.prompt_list_task.format(
+                            screen_layout_json=self.screen_layout_json,
+                            app_detailed_spec_data_converted_json=self.app_detailed_spec_data_converted_json
+                        )
+            api_endpoint = "https://api.ai-service.global.fujitsu.com/ai-foundation/chat-ai/gemini/pro:generateContent" 
 
-            payload = {
+            data = {
                 "contents": [
-                {
-                    "role": "user",
-                    "parts": [
-                        {
-                            "text": prompt
-                        }
-                    ]
-                }
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "inlineData": {
+                                    "mimeType": "image/jpeg",
+                                    "data": encoded_image
+                                }
+                            },
+                            {
+                                "text": prompt
+                            }
+                        ]
+                    }
                 ]
             }
-           
+        
             # Send the POST request
-            response = requests.post(api_endpoint, headers=headers, json=payload)
+            response = requests.post(api_endpoint, headers=headers, json=data)
             response.raise_for_status()  # Raise an exception for HTTP errors
+            os.remove(self.flowchart_image_path)
            
             # Check the response
             try:
                 analysis_result = response.json()
-                print("Analysis Result:", analysis_result)
- 
+                # print("Analysis Result:", analysis_result)
                 # Extract the content (only the wbs result)
                 content = analysis_result['candidates'][0]['content']['parts'][0]['text']
                 # self.create_wbs(content, start_date)
