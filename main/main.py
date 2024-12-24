@@ -34,6 +34,7 @@ class Application(tk.Frame):
         self.screen_layout_json = None
         self.app_detailed_spec_data_converted_json = None
         self.flowchart_image_path = None
+        self.task_details_response = NotImplemented
 
     def create_widgets(self):
         # Add a new entry for the API key
@@ -225,7 +226,7 @@ class Application(tk.Frame):
         # print('---------------------------------------------------------')
         # print(self.app_detailed_spec_data_converted_json)
 
-        # self.send_data_to_chatai()
+        self.send_data_to_chatai()
     
     def compare_excel(self, file, template_file): 
         try:
@@ -700,6 +701,7 @@ class Application(tk.Frame):
                 # Extract the content (only the wbs result)
                 content = analysis_result['candidates'][0]['content']['parts'][0]['text']
                 # self.create_wbs(content, start_date)
+                self.task_details_response = content
                 print("Response from chat AI for the Task Details")
                 print(content)
  
@@ -721,46 +723,36 @@ class Application(tk.Frame):
         finally:
             self.status_label.config(text="Process Task Details has completed successfully. Creating WBS is in progress.")
     
-    #Send data to ChatAI for analysis
+    # Send data for wbs - request 2
     def send_data_to_chatai(self):
         try:
- 
             # Call the method to create the status section
-            self.create_result_section()
-           
-            # Load the Excel file
-            workbook = load_workbook(self.task_details_file)
- 
-            # Select the active sheet (or specify a sheet name)
-            sheet = workbook.active
- 
-            # Read the value from column C, row 2
-            start_date = sheet['C2'].value
-            end_date = sheet['C3'].value
- 
-            # Debug - print the start date and end date
-            print(start_date)
-            print(end_date)
- 
+            # self.create_result_section()
+
+            if self.file_type.get() == "Task Details":
+                task_details_data=self.task_details_data.to_json()
+            else:
+                task_details_data=self.task_details_response
+
             # Define the API endpoint and hardcoded prompt
             api_endpoint = "https://api.ai-service.global.fujitsu.com/ai-foundation/chat-ai/gemini/pro:generateContent" 
             prompt = config.prompt.format(
-                            task_details_data=self.task_details_data.to_json(),
+                            task_details_data=task_details_data,
                             skill_set_data=self.skill_set_data.to_json(),
-                            start_date_str=start_date,
-                            end_date_str=end_date,
+                            start_date_str=self.start_date_entry.get_date(),
+                            end_date_str=self.end_date_entry.get_date(),
                             task_description="Task Description Example",  # Provide example values for placeholders
                             assigned_to="Assigned to Example",
                             progress="To do",
                             plan_start_date="Start date Example",
                             plan_end_date="End date Example"
                         )
- 
+
             headers = {
                 "Content-type": "application/json",
                 "api-key": self.api_key
             }
- 
+
             payload = {
                 "contents": [
                 {
@@ -773,25 +765,25 @@ class Application(tk.Frame):
                 }
                 ]
             }
-           
+
             # Send the POST request
             response = requests.post(api_endpoint, headers=headers, json=payload)
             response.raise_for_status()  # Raise an exception for HTTP errors
-           
+
             # Check the response
             try:
                 analysis_result = response.json()
                 #print("Analysis Result:", analysis_result)
- 
+
                 # Extract the content (only the wbs result)
                 content = analysis_result['candidates'][0]['content']['parts'][0]['text']
-                self.create_wbs(content, start_date)
+                # self.create_wbs(content, self.start_date_entry)
                 print(content)
- 
+
             except json.JSONDecodeError:
                 print("Error: The response is not in JSON format.")
                 print("Response content:", response.text)
- 
+
         except requests.exceptions.RequestException as e:
             if "Too Large" in str(e):
                 messagebox.showerror("Error", config.error_message["FileTooBig"])
