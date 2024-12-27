@@ -94,6 +94,8 @@ class Application(tk.Frame):
         tk.Button(self, text="Start", command=self.button_starter, width=10).grid(row=11, column=1, padx=10, pady=10, sticky='e')
         tk.Button(self, text="Cancel", command=self.master.destroy, width=10).grid(row=11, column=2, padx=10, pady=10, sticky='w')
     
+       
+
     def validate_dates(self, event):
         start_date = self.start_date_entry.get_date()
         end_date = self.end_date_entry.get_date()
@@ -116,7 +118,7 @@ class Application(tk.Frame):
         self.result_section.grid(row=13, column=0, columnspan=3, padx=5, pady=5)
 
         # Status label to show process completion
-        self.status_label = tk.Label(self, text="Processing, please wait...", wraplength=400)
+        self.status_label = tk.Label(self, text="", wraplength=400)
         self.status_label.grid(row=14, column=0, columnspan=3, padx=10, pady=5)
         self.status_label.update_idletasks()  # Force the GUI to update
 
@@ -127,6 +129,9 @@ class Application(tk.Frame):
         self.download_button.grid(row=15, column=1, padx=10, pady=10, sticky='ew')
         self.download_button.grid_remove()
 
+        self.progress = ttk.Progressbar(self, orient="horizontal", length=300, mode="determinate")
+        self.progress.grid(row=16, column=1, padx=10, pady=10, sticky='ew')
+
     def remove_result_section(self):
         if hasattr(self, 'separator'):
             self.separator.grid_forget()
@@ -136,6 +141,8 @@ class Application(tk.Frame):
             self.status_label.grid_forget()
         if hasattr(self, 'download_button'):
             self.download_button.grid_remove()
+        if hasattr(self, 'progress'):
+            self.progress.grid_forget()
 
     def browse_file(self, entry, label): 
         # if the process is repeated - clear the list first
@@ -191,6 +198,8 @@ class Application(tk.Frame):
     def button_starter(self):
             t = Thread(target=self.main)
             t.start()
+            # Simulate a long-running process
+            
     
     def main(self):
         # if repeat the process, clear the result section first
@@ -212,8 +221,8 @@ class Application(tk.Frame):
         # If the file type is Task Details, read the file
         if self.file_type.get() == "Task Details":
             # Read task details data
-            if self.compare_excel(self.task_details_file, 'Task Details Sample.xlsx') == False:
-                return
+            # if self.compare_excel(self.task_details_file, 'Task Details Sample.xlsx') == False:
+            #     return
             self.task_details_data = self.read_file(self.task_details_file, 1, "B:E")
             if self.task_details_data is None:
                 return
@@ -653,10 +662,24 @@ class Application(tk.Frame):
         # print(json_string)
         return json_string
 
+    def process_step(self):
+        current_value = self.progress["value"]
+        if current_value < 100:
+            self.progress["value"] = current_value + 1
+        else:
+            self.progress["value"] = 0  # Reset to 0 once it reaches 100
+        self.master.after(100, self.process_step)  # Update every 100 milliseconds
+    
     def request_task_details(self):
         try:
             # Call the method to create the status section
             self.create_result_section()
+
+            self.progress["value"] = 0
+            self.status_label.config(text="Sending request to get task details data...")
+
+            # Simulate sending data to ChatAI
+            self.master.after(100, self.process_step)
 
             encoded_image = self.encode_image(self.flowchart_image_path)
     
@@ -721,18 +744,23 @@ class Application(tk.Frame):
             print(ve)
             messagebox.showerror("Error", str(ve))
         finally:
-            self.status_label.config(text="Process Task Details has completed successfully. Creating WBS is in progress.")
-    
+            # self.status_label.config(text="Process Task Details has completed successfully. Creating WBS is in progress.")
+            self.progress["value"] = 100
     # Send data for wbs - request 2
     def send_data_to_chatai(self):
-        try:
-            # Call the method to create the status section
-            # self.create_result_section()
+        try:   
 
             if self.file_type.get() == "Task Details":
+                self.create_result_section()
                 task_details_data=self.task_details_data.to_json()
             else:
                 task_details_data=self.task_details_response
+
+            self.progress["value"] = 0
+            self.status_label.config(text="Process Task Details has completed successfully. Sending request to get the WBS details...")
+
+            # Simulate sending data to ChatAI
+            self.master.after(100, self.process_step)
 
             # Define the API endpoint and hardcoded prompt
             api_endpoint = "https://api.ai-service.global.fujitsu.com/ai-foundation/chat-ai/gemini/pro:generateContent" 
@@ -797,7 +825,9 @@ class Application(tk.Frame):
             messagebox.showerror("Error", str(ve))
         finally:
             self.status_label.config(text="Process has completed successfully. You may download the WBS file using the download button below.")
+            self.progress["value"] = 100
             self.download_button.grid()
+            self.progress.grid_forget()
 
     def download_result(self):
         try:
