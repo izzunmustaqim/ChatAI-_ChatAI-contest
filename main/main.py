@@ -723,7 +723,7 @@ class Application(tk.Frame):
                 # print("Analysis Result:", analysis_result)
                 # Extract the content (only the wbs result)
                 content = analysis_result['candidates'][0]['content']['parts'][0]['text']
-                # self.create_wbs(content, start_date)
+                self.create_wbs(content, self.start_date_entry)
                 self.task_details_response = content
                 print("Response from chat AI for the Task Details")
                 print(content)
@@ -866,6 +866,8 @@ class Application(tk.Frame):
             return None
         
     def create_wbs(self, content, start_date):
+        start_date_value = start_date.get_date()  # Extract the date value
+
         # Extract the markdown table using regular expression
         table_pattern = re.compile(r'\|.*\|')
         markdown_table = '\n'.join(table_pattern.findall(content))
@@ -895,7 +897,8 @@ class Application(tk.Frame):
 
         # Write the variable into cell
         ws['B2'] = "Details_WBS.xlsx"
-        ws['B6'] = datetime.strptime(start_date, "%Y-%m-%d").strftime("%m/%d/%Y")
+        # ws['B6'] = datetime.strptime(start_date, "%Y-%m-%d").strftime("%m/%d/%Y")
+        # ws['B6'] = start_date_value.strftime('%m/%d/%Y')  # Format the date as a string
         # Set current_date to the current date
         current_date = datetime.now().date()
         ws['G2'] = current_date
