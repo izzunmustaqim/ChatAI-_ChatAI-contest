@@ -772,7 +772,8 @@ class Application(tk.Frame):
                             assigned_to="Assigned to Example",
                             progress="To do",
                             plan_start_date="Start date Example",
-                            plan_end_date="End date Example"
+                            plan_end_date="End date Example",
+                            remarks="Remarks for whole WBS Example",
                         )
 
             headers = {
@@ -804,7 +805,19 @@ class Application(tk.Frame):
 
                 # Extract the content (only the wbs result)
                 content = analysis_result['candidates'][0]['content']['parts'][0]['text']
-                self.create_wbs(content, self.start_date_entry)
+                remark_column = re.compile(r"\*\*Remarks:\*\*(.*)", re.DOTALL)
+                match = remark_column.search(content)
+                if match:
+                    remarks = match.group(1).strip()
+                    print("Extracted Remarks:")
+                    #print(remarks)
+                else:
+                    remarks = (
+                        "Please review the entire WBS to ensure that all tasks are assigned correctly based on complexity and skillset. "
+                        "Make any necessary adjustments to improve the efficiency and effectiveness of the project plan."
+                    )
+                    #print("Remarks section not found.")
+                self.create_wbs(content, self.start_date_entry, remarks)
                 print(content)
 
             except json.JSONDecodeError:
@@ -864,7 +877,7 @@ class Application(tk.Frame):
             messagebox.showerror("Error", config.error_message["InvalidKeyError"])
             return None
         
-    def create_wbs(self, content, start_date):
+    def create_wbs(self, content, start_date, remarks):
         # Extract the date value
         start_date_value = start_date.get_date()
 
@@ -902,6 +915,7 @@ class Application(tk.Frame):
         # Set current_date to the current date
         current_date = datetime.now().date()
         ws['G2'] = current_date
+        ws['B3'] = remarks
 
          # Write the DataFrame to the Excel template starting at row 9
         start_row = 9
