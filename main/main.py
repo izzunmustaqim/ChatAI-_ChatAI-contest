@@ -35,6 +35,7 @@ class Application(tk.Frame):
         self.app_detailed_spec_data_converted_json = None
         self.flowchart_image_path = None
         self.task_details_response = NotImplemented
+        self.task_list = []
 
     def create_widgets(self):
         # Add a new entry for the API key
@@ -177,7 +178,7 @@ class Application(tk.Frame):
                             if file.endswith('.xlsx') or file.endswith('.xls'):
                                 folder_file_paths.append(os.path.join(root, file))
 
-                    if len(folder_file_paths) > 5:
+                    if len(folder_file_paths) > 10:
                         messagebox.showerror("Error", config.error_message["ManyExcelError"])
                         self.ss_folder_file.clear()  # Clear the list to prevent further processing
                         return
@@ -223,12 +224,13 @@ class Application(tk.Frame):
             # Read task details data
             # if self.compare_excel(self.task_details_file, 'Task Details Sample.xlsx') == False:
             #     return
-            self.task_details_data = self.read_file(self.task_details_file, 1, "B:E")
+            self.task_details_data = self.read_file(self.task_details_file, 1, "B:D")
             if self.task_details_data is None:
                 return
         else:
-            self.read_ss_folder_files()
-            self.request_task_details()
+            #self.read_ss_folder_files()
+            tasks_json = self.read_ss_folder_files()
+            self.request_task_details(tasks_json)
 
         # print(f"Result in main :")
         # print(self.screen_layout_json)
@@ -319,12 +321,18 @@ class Application(tk.Frame):
         screen_layout_files = []
         
         for file_path in self.ss_folder_file:
+
             if "Application Detailed Specification" in file_path:
                 application_detailed_specification_files.append(file_path)
+                
+
             elif "Event Process Sequence Diagram History" in file_path:
-                 event_process_diagram_history_files.append(file_path)
+                event_process_diagram_history_files.append(file_path)
+
             elif "Screen Layout" in file_path:
                 screen_layout_files.append(file_path)
+                # Define the regular expression pattern to match the desired part
+                
         
         # Print the results
         print("\nScreen Layout Files:")
@@ -340,14 +348,23 @@ class Application(tk.Frame):
             # print(file)
             # call function read application detailed specification files
             app_detailed_spec_data = self.read_application_detailed_specification_files(file)
-            self.app_detailed_spec_data_converted_json = self.convert_app_detailed_spec_data(app_detailed_spec_data)
+            self.app_detailed_spec_data_converted_json = self.convert_app_detailed_spec_data(app_detailed_spec_data, file)
             print(self.app_detailed_spec_data_converted_json)
 
-        print("\nEvent Process Sequence Diagram History Files:")
-        for file in event_process_diagram_history_files:
-            # call function read event process sequence diagram history files
-            self.flowchart_image_path = self.event_Process_Sequence_Diagram_History_Files(file)
-            # print(flowchart_image)
+        # print("\nEvent Process Sequence Diagram History Files:")
+        # for file in event_process_diagram_history_files:
+        #     # call function read event process sequence diagram history files
+        #     self.flowchart_image_path = self.event_Process_Sequence_Diagram_History_Files(file)
+        #     # print(flowchart_image)
+
+        # create a list of tasks into json
+        json_list = [{'Item No': i + 1, 'Task name': task} for i, task in enumerate(self.task_list)]
+        # Convert to JSON string
+        json_string = json.dumps(json_list, indent=4)
+
+        print(json_string)
+        return json_string
+
         
     def read_screen_layout(self, file, sheetName, keywordsHeader):
         try:
@@ -377,15 +394,29 @@ class Application(tk.Frame):
                 if start_found:
                     if filtered_row != [] and '画面項目名\n/Screen Item Name' not in filtered_row:
                         screen_layout_data.append(filtered_row)
+            
+            screen_name = ""
+            match = re.search(r"\\([^_]+)_", file)
+            if match:
+                extracted_part = match.group(1)
+                screen_name = extracted_part + "_UI"
+                
+                # print(f"Extracted part: {screen_name}")
+            else:
+                #print("No match found.")
+                pass
+
+            # creating the list of tasks
+            self.task_list.append(screen_name)
 
             # Initialize the JSON structure
             screen_layout_json = {
-                "Screen Layout": [],
+                screen_name: [],
             }
     
             for row in screen_layout_data:
                 if len(row) > 1 and (row[1] != '-' or row[2] != '-'):
-                    screen_layout_json["Screen Layout"].append({
+                    screen_layout_json[screen_name].append({
                         "Screen Item Name": row[1],
                         "Type": row[2],
                     })
@@ -568,7 +599,7 @@ class Application(tk.Frame):
                     else:
                         return True
         
-    def convert_app_detailed_spec_data(self, app_detailed_spec_data):
+    def convert_app_detailed_spec_data(self, app_detailed_spec_data, file_path):
         is_description = False
         is_argument = False
         is_return_value = False
@@ -615,13 +646,31 @@ class Application(tk.Frame):
                 if len(row) == 7:
                     table_file.append(row)
         
+        # Define the regular expression pattern to match the desired part
+        function_name = ""
+        # Use re.search to find the match
+        match = re.search(r"\\([^_]+)_", file_path)
+        if match:
+            extracted_part = match.group(1)
+            function_name = extracted_part + "_" + description[0]
+            # print(f"Extracted part: {function_name}")
+        else:
+            #print("No match found.")
+            pass
+        
+        # creating the list of tasks
+        self.task_list.append(function_name)
+
         # Initialize the JSON structure
         app_detailed_spec_json = {
+            "Task Name": [],
             "Description": [],
             "Argument": [],
             "Return_value": [],
             "Table or File use": []
         }
+
+        app_detailed_spec_json["Task Name"].append(function_name)
 
         for row in description:
             if len(row) > 1:
@@ -658,7 +707,7 @@ class Application(tk.Frame):
                 })
         
         # Convert to JSON string for readability
-        json_string = json.dumps(app_detailed_spec_json, indent=4, ensure_ascii=False)
+        json_string = json.dumps(app_detailed_spec_json, indent=5, ensure_ascii=False)
         # print(json_string)
         return json_string
 
@@ -670,18 +719,18 @@ class Application(tk.Frame):
             self.progress["value"] = 0  # Reset to 0 once it reaches 100
         self.master.after(100, self.process_step)  # Update every 100 milliseconds
     
-    def request_task_details(self):
+    def request_task_details(self, tasks_list_json):
         try:
             # Call the method to create the status section
             self.create_result_section()
 
             self.progress["value"] = 0
-            self.status_label.config(text="Sending request to get task details data...")
+            self.status_label.config(text="Sending request to get task complexity...")
 
             # Simulate sending data to ChatAI
             self.master.after(100, self.process_step)
 
-            encoded_image = self.encode_image(self.flowchart_image_path)
+            # encoded_image = self.encode_image(self.flowchart_image_path)
     
             headers = {
                 "Content-type": "application/json",
@@ -689,7 +738,8 @@ class Application(tk.Frame):
             }
             prompt = config.prompt_list_task.format(
                             screen_layout_json=self.screen_layout_json,
-                            app_detailed_spec_data_converted_json=self.app_detailed_spec_data_converted_json
+                            app_detailed_spec_data_converted_json=self.app_detailed_spec_data_converted_json,
+                            tasks_list_json=tasks_list_json
                         )
             api_endpoint = "https://api.ai-service.global.fujitsu.com/ai-foundation/chat-ai/gemini/pro:generateContent" 
 
@@ -698,12 +748,12 @@ class Application(tk.Frame):
                     {
                         "role": "user",
                         "parts": [
-                            {
-                                "inlineData": {
-                                    "mimeType": "image/jpeg",
-                                    "data": encoded_image
-                                }
-                            },
+                            # {
+                            #     "inlineData": {
+                            #         "mimeType": "image/jpeg",
+                            #         "data": encoded_image
+                            #     }
+                            # },
                             {
                                 "text": prompt
                             }
@@ -715,7 +765,7 @@ class Application(tk.Frame):
             # Send the POST request
             response = requests.post(api_endpoint, headers=headers, json=data)
             response.raise_for_status()  # Raise an exception for HTTP errors
-            os.remove(self.flowchart_image_path)
+            # os.remove(self.flowchart_image_path)
            
             # Check the response
             try:
@@ -805,19 +855,19 @@ class Application(tk.Frame):
 
                 # Extract the content (only the wbs result)
                 content = analysis_result['candidates'][0]['content']['parts'][0]['text']
-                remark_column = re.compile(r"\*\*Remarks:\*\*(.*)", re.DOTALL)
-                match = remark_column.search(content)
-                if match:
-                    remarks = match.group(1).strip()
-                    print("Extracted Remarks:")
-                    #print(remarks)
-                else:
-                    remarks = (
-                        "Please review the entire WBS to ensure that all tasks are assigned correctly based on complexity and skillset. "
-                        "Make any necessary adjustments to improve the efficiency and effectiveness of the project plan."
-                    )
-                    #print("Remarks section not found.")
-                self.create_wbs(content, self.start_date_entry, remarks)
+                # remark_column = re.compile(r"\*\*Remarks:\*\*(.*)", re.DOTALL)
+                # match = remark_column.search(content)
+                # if match:
+                #     remarks = match.group(1).strip()
+                #     print("Extracted Remarks:")
+                #     #print(remarks)
+                # else:
+                #     remarks = (
+                #         "Please review the entire WBS to ensure that all tasks are assigned correctly based on complexity and skillset. "
+                #         "Make any necessary adjustments to improve the efficiency and effectiveness of the project plan."
+                #     )
+                #     #print("Remarks section not found.")
+                self.create_wbs(content, self.start_date_entry)
                 print(content)
 
             except json.JSONDecodeError:
@@ -877,7 +927,7 @@ class Application(tk.Frame):
             messagebox.showerror("Error", config.error_message["InvalidKeyError"])
             return None
         
-    def create_wbs(self, content, start_date, remarks):
+    def create_wbs(self, content, start_date):
         # Extract the date value
         start_date_value = start_date.get_date()
 
@@ -915,7 +965,7 @@ class Application(tk.Frame):
         # Set current_date to the current date
         current_date = datetime.now().date()
         ws['G2'] = current_date
-        ws['B3'] = remarks
+        # ws['B3'] = remarks
 
          # Write the DataFrame to the Excel template starting at row 9
         start_row = 9
