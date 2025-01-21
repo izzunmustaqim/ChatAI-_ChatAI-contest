@@ -778,7 +778,7 @@ class Application(tk.Frame):
                 # Extract the content (only the wbs result)
                 content = analysis_result['candidates'][0]['content']['parts'][0]['text']
                 self.task_details_response = content
-                print("Response from chat AI for the Tasks Complexity and Priority")
+                print("Response from chat AI for the Tasks Complexity")
                 print(content)
                 
                 # Extract the markdown table using regular expression
@@ -790,13 +790,10 @@ class Application(tk.Frame):
                 task_df = pd.read_csv(data, sep="|", skipinitialspace=True, engine='python')
 
                 # Remove the first row
-                task_df = task_df.iloc[1:]
+                self.task_df = task_df.iloc[1:]
 
                 # Drop the first and last columns which are empty due to the table format
-                self.task_df = task_df.drop(task_df.columns[[0, -1]], axis=1)
-                
-                print(task_df)
-                # print(task_df.to_json())
+                self.task_df = task_df.drop(task_df.columns[[0, -1]], axis=1)                
  
             except json.JSONDecodeError:
                 print("Error: The response is not in JSON format.")
@@ -821,14 +818,11 @@ class Application(tk.Frame):
     def send_data_to_chatai(self):
         start_date_str=self.start_date_entry.get_date()
         end_date_str=self.end_date_entry.get_date()
-        # print('start_date_str')
-        # print(start_date_str)
         start_date = start_date_str.strftime('%m/%d/%Y')
         end_date = end_date_str.strftime('%m/%d/%Y')
-        # print(start_date)
+        
         try:   
             task_details_data=self.task_details_response
-            # task_details_data=self.task_df.to_json()
 
             # for progress bar
             self.progress["value"] = 0
@@ -959,13 +953,8 @@ class Application(tk.Frame):
         # Drop the first and last columns which are empty due to the table format
         df = df.drop(df.columns[[0, -1]], axis=1)
 
-        # # Convert to datetime and change format
-        # df.iloc[:, 4] = pd.to_datetime(df.iloc[:, 4]).dt.strftime('%m/%d/%Y')
-        # df.iloc[:, 5] = pd.to_datetime(df.iloc[:, 5]).dt.strftime('%m/%d/%Y')
-
         # remove the header from an existing Pandas DataFrame
         df = df.rename(columns=df.iloc[0]).drop(df.index[0])
-        print(df)
 
         try:
             # Load the Excel template
