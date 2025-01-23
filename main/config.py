@@ -37,6 +37,7 @@ prompt = (
             "Please fully utilize the date, but do not exceed the project's end date at {end_date_str}."
             "Please use the date range from the input data for start date = {start_date_str} and end date = {end_date_str} for each of the task."
             "After assigning all tasks, verify that no developer has unassigned time within the project duration."
+            "Make sure all Plan Start date and Plan End date are date with no strings"
             "It should only consist of:"
             "| Item No. | Task Description: {task_description} | Assigned to: {assigned_to} | Progress: {progress} | Plan Start date: {plan_start_date} | Plan End date: {plan_end_date} |\n"
         )

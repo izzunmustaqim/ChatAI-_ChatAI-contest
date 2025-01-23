@@ -19,6 +19,8 @@ from datetime import datetime
 from threading import Thread  # Import Thread class
 import base64  # Import base64 module
 from PIL import Image  # Import Image class from PIL module
+import win32com.client as win32  # Import win32com.client module
+import pywintypes  # Import pywintypes module
 
 class Application(tk.Frame):
     def __init__(self, master=None):
@@ -875,7 +877,7 @@ class Application(tk.Frame):
 
                 # Extract the content (only the wbs result)
                 content = analysis_result['candidates'][0]['content']['parts'][0]['text']
-                self.create_wbs(content, self.start_date_entry)
+                self.create_wbs(content, self.start_date_entry, self.end_date_entry)
                 print(content)
 
             except json.JSONDecodeError:
@@ -903,7 +905,7 @@ class Application(tk.Frame):
         try:
             # Define the destination file path in the Downloads folder
             downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
-            destination_file_path = os.path.join(downloads_folder, "Details_WBS.xlsx")
+            destination_file_path = os.path.join(downloads_folder, "Details_WBS.xlsm")
 
             # Create dummy file in the download folder
             df = pd.DataFrame()
@@ -913,7 +915,7 @@ class Application(tk.Frame):
             current_directory = os.getcwd()
 
             # Define the source file path
-            source_file_path = os.path.join(current_directory, "Details_WBS.xlsx")
+            source_file_path = os.path.join(current_directory, "Details_WBS.xlsm")
 
             # Copy the file
             shutil.copy(source_file_path, destination_file_path)
@@ -935,9 +937,10 @@ class Application(tk.Frame):
             messagebox.showerror("Error", config.error_message["InvalidKeyError"])
             return None
         
-    def create_wbs(self, content, start_date):
+    def create_wbs(self, content, start_date, end_date):
         # Extract the date value
         start_date_value = start_date.get_date()
+        end_date_value = end_date.get_date()
 
         # Extract the markdown table using regular expression
         table_pattern = re.compile(r'\|.*\|')
@@ -958,27 +961,42 @@ class Application(tk.Frame):
 
         try:
             # Load the Excel template
-            template_path = 'JDU-WBS_Template_Samples.xlsx'
-            wb = openpyxl.load_workbook(template_path)
-            ws = wb.active  # or specify the sheet name with wb['SheetName']
+            template_path = 'JDU-WBS_Template_Samples.xlsm'
+            # Create an instance of Excel
+            macro_name = 'UpdateDatesAndFormat'  # Name of the macro to run
+            excel = win32.gencache.EnsureDispatch("Excel.Application")
+    
+            # Open the workbook
+            workbook = excel.Workbooks.Open(os.path.abspath(template_path))
+            sheet = workbook.Sheets(1)
 
             # Write the variable into cell
-            ws['B2'] = "Details_WBS.xlsx"
+            sheet.Cells(2, 2).Value = "Details_WBS.xlsm"
             # Format the date as a string
-            ws['B6'] = start_date_value.strftime('%m/%d/%Y')
+            sheet.Cells(6, 2).Value = start_date_value.strftime('%m/%d/%Y')
+            sheet.Cells(7, 2).Value = end_date_value.strftime('%m/%d/%Y')
             # Set current_date to the current date
             current_date = datetime.now().date()
-            ws['G2'] = current_date
+            pywintypes_time = pywintypes.Time(current_date)
+            sheet.Cells(2, 7).Value = pywintypes_time
 
-            # Write the DataFrame to the Excel template starting at row 9
-            start_row = 9
+            # Write the DataFrame to the Excel template starting at row 10
+            start_row = 10 #temp test for no 10
             for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start_row):
                 for c_idx, value in enumerate(row, 1):
-                    ws.cell(row=r_idx, column=c_idx, value=value)
+                    sheet.Cells(r_idx, c_idx).Value = value
+    
+            # Run the macro
+            excel.Application.Run(macro_name)
+    
+            # Save and close the workbook
+            workbook.SaveAs(os.path.abspath("Details_WBS.xlsm"))
+            workbook.Close()
+        
+            # Quit Excel
+            excel.Application.Quit()
 
-            # Save the modified template as a new file
-            output_path = 'Details_WBS.xlsx'
-            wb.save(output_path)
+            output_path = 'Details_WBS.xlsm'
             
         except FileNotFoundError:
             messagebox.showerror("Error", config.error_message["FileNotFoundError"])
