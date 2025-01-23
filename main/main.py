@@ -5,7 +5,6 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 from tkcalendar import DateEntry
-import pandas as pd
 import requests  # Import pandas
 import pandas as pd  # Import pandas
 import config   # Import the config file
