@@ -45,13 +45,14 @@ prompt = (
             # "Ensure that everyone starts their next task only after completing the previous one."
             
             "As a project manager, create a WBS for the project. The input are the task details and the skill set of the team members."
-            "Make sure all Plan Start date and Plan End date are date with no strings"
+            #"Make sure all Plan Start date and Plan End date are date with no strings"
             "It should only consist of:"
             "| Item No. | Task Description: {task_description} | Assigned to: {assigned_to} | Progress: {progress} | Plan Start date: {plan_start_date} | Plan End date: {plan_end_date} |\n"
             
             "#Requirement for Task Description:"
             "The task description list should follow exactly like the task details data without the complexity."
             "Make sure to only include the tasks from the given input of task details."
+            "From the given input of task details, please use it exactly as it is as well as the arrangement."
 
             "#Requirement for Task assignment ('Assigned to'):"
             "The order for task assignment based on complexity should be following the follow:"
