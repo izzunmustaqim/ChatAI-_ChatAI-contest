@@ -366,6 +366,9 @@ class Application(tk.Frame):
             else:
                 messagebox.showerror("Error", f"{error_message}")
                 self.browse_file(self.input_details_entry, "SS Documents")
+                self.btn_start["state"] = tk.NORMAL
+                self.btn_skillset["state"] = tk.NORMAL
+                self.btn_ss_documents["state"] = tk.NORMAL
                 sys.exit()
 
         print("Application Detailed Specification Files:")
@@ -390,6 +393,9 @@ class Application(tk.Frame):
             else:
                 messagebox.showerror("Error", f"{error_message}")
                 self.browse_file(self.input_details_entry, "SS Documents")
+                self.btn_start["state"] = tk.NORMAL
+                self.btn_skillset["state"] = tk.NORMAL
+                self.btn_ss_documents["state"] = tk.NORMAL
                 sys.exit()
                 
 
