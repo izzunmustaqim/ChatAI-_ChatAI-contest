@@ -1,26 +1,26 @@
+# Standard library
+import io
 import json
 import os
-import shutil
-import sys
-import tkinter as tk
-from tkinter import filedialog, messagebox
-from tkinter import ttk
-from tkcalendar import DateEntry
-import requests  # Import pandas
-import pandas as pd  # Import pandas
-import config   # Import the config file
-import webbrowser
 import re
-import io
-import openpyxl
+import shutil
+import tkinter as tk
+import webbrowser
+from datetime import datetime
+from threading import Thread
+from tkinter import filedialog, messagebox, ttk
+
+# Third-party
+import pandas as pd
+import pywintypes
+import requests
+import win32com.client as win32
 from openpyxl import load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
-from datetime import datetime
-from threading import Thread  # Import Thread class
-import base64  # Import base64 module
-from PIL import Image  # Import Image class from PIL module
-import win32com.client as win32  # Import win32com.client module
-import pywintypes  # Import pywintypes module
+from tkcalendar import DateEntry
+
+# Local
+import config
 
 class Application(tk.Frame):
     def __init__(self, master=None):
@@ -36,7 +36,7 @@ class Application(tk.Frame):
         self.screen_layout_json = None
         self.app_detailed_spec_data_converted_json = None
         self.flowchart_image_path = None
-        self.task_details_response = NotImplemented
+        self.task_details_response = None
         self.task_list = []
         self.is_file_valid = True
 
@@ -247,53 +247,10 @@ class Application(tk.Frame):
         self.btn_skillset["state"] = tk.NORMAL
         self.btn_ss_documents["state"] = tk.NORMAL
     
-    def compare_excel(self, file, template_file): 
-        try:
-            workbook1 = load_workbook(file, data_only=True)
-            workbook2 = load_workbook(template_file, data_only=True)
-            sheet1 = workbook1.active
-            sheet2 = workbook2.active
 
-            comparison1_success = True
-            comparison2_success = True
-            comparison3_success = True
-    
-            if workbook1 == self.task_details_file:
-                # Comparison 1: Column B, rows 2-4
-                for row in range(2, 5):  # Rows 2, 3, 4
-                    if sheet1[f"B{row}"].value != sheet2[f"B{row}"].value:
-                        print(f"Comparison 1 failed: Cell B{row} differs.")
-                        comparison1_success = False
-    
-                # Comparison 2: Columns B-E, row 6
-            for col in range(2, 6):  # Columns B, C, D, E (2,3,4,5)
-                if sheet1[f"{chr(ord('B') + col - 2)}{6}"].value != sheet2[f"{chr(ord('B') + col - 2)}{6}"].value:
-                    print(f"Comparison 2 failed: Cell {chr(ord('B') + col - 2)}{6} differs.")
-                    comparison2_success = False
-    
-            if workbook1 == self.skillset_file:
-                # Comparison 3: Columns B-GP, rows 2-4
-                for row in range(2, 5):  # Rows 2, 3, 4
-                    for col in range(2, 188):  # Columns B (2) to GP (187)
-                        col_str = chr(col + 64)  # Convert column number to letter
-                        if sheet1.cell(row=row, column=col).value != sheet2.cell(row=row, column=col).value:
-                            print(f"Comparison 3 failed: Cell {col_str}{row} differs.")
-                            comparison3_success = False
-
-            overall_comparison = comparison1_success and comparison2_success and comparison3_success
-
-            print(f"Overall comparison: {overall_comparison}")
-            if overall_comparison != True:
-                messagebox.showerror("Overall Comparison", f"Please double check format/input in excel")
-                return overall_comparison
-        
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to compare Excel files: {e}")
-            return False
         
     # rangecol=None mean will read all columns that has data
-    def read_file(self, file, rowskip=0, rangecol=None):
-        # print(file, rowskip, rangecol)
+    def read_file(self, file: str, rowskip: int = 0, rangecol: list | None = None) -> pd.DataFrame | None:
         try:
             file_size = os.path.getsize(file)
             max_mb = 25 * 1024 * 1024  # 25MB in bytes
@@ -303,21 +260,19 @@ class Application(tk.Frame):
                 self.btn_start["state"] = tk.NORMAL
                 self.btn_skillset["state"] = tk.NORMAL
                 self.btn_ss_documents["state"] = tk.NORMAL
-                sys.exit()
+                return None
 
-
-            file_data = pd.read_excel(file, skiprows=rowskip, usecols=rangecol)  # Read Excel file using pandas
+            file_data = pd.read_excel(file, skiprows=rowskip, usecols=rangecol)
             
             # Check if the file is empty
             if file_data.empty:
                 raise pd.errors.EmptyDataError("The file is empty")
             
             # Data cleaning steps
-            file_data.dropna(axis=1, how='all', inplace=True)  # Remove columns with all missing values
-            file_data.fillna(0, inplace=True)  # Replace NaN values with 0
+            file_data.dropna(axis=1, how='all', inplace=True)
+            file_data.fillna(0, inplace=True)
             
-            # print(file_data)  # Print the task details data for debugging
-            return(file_data)
+            return file_data
         except FileNotFoundError:
             messagebox.showerror("Error", config.error_message["FileNotFoundError"])
             return None
@@ -331,15 +286,15 @@ class Application(tk.Frame):
             messagebox.showerror("Error", f"Failed to read Excel file: {e}")
             return None
     
-    def process_step(self):
+    def process_step(self) -> None:
         current_value = self.progress["value"]
         if current_value < 100:
             self.progress["value"] = current_value + 1
         else:
-            self.progress["value"] = 0  # Reset to 0 once it reaches 100
-        self.master.after(100, self.process_step)  # Update every 100 milliseconds
+            self.progress["value"] = 0
+        self.master.after(100, self.process_step)
 
-    def read_ss_folder_files(self):
+    def read_ss_folder_files(self) -> str:
         self.is_file_valid = True
         self.selected_folder_file = []
         self.task_list.clear()
@@ -381,7 +336,7 @@ class Application(tk.Frame):
             self.btn_skillset["state"] = tk.NORMAL
             self.btn_ss_documents["state"] = tk.NORMAL
             self.remove_result_section()
-            sys.exit()
+            return None
                 
         # Print the results
         print("\nScreen Layout Files:")
@@ -413,13 +368,13 @@ class Application(tk.Frame):
                 self.btn_skillset["state"] = tk.NORMAL
                 self.btn_ss_documents["state"] = tk.NORMAL
                 self.remove_result_section()
-                sys.exit()
+                return None
 
         print("Application Detailed Specification Files:")
         for file in application_detailed_specification_files:
             # print(file)
             # call function read application detailed specification files
-            workbook = load_workbook(filename=file_path, data_only=True) # Load the workbook
+            workbook = load_workbook(filename=file, data_only=True) # Load the workbook
             sheet_names = [] # Initialize an empty list for sheet names
 
             # Iterate through each worksheet in the workbook
@@ -427,7 +382,7 @@ class Application(tk.Frame):
                 sheet_names.append(sheet.title)
 
             # Check if the file is an Application Detailed Specification file
-            error_message = self.check_file_validity(sheet_names, workbook, file_path)
+            error_message = self.check_file_validity(sheet_names, workbook, file)
 
             if self.is_file_valid:
                 app_detailed_spec_data = self.read_application_detailed_specification_files(file)
@@ -441,7 +396,7 @@ class Application(tk.Frame):
                 self.btn_skillset["state"] = tk.NORMAL
                 self.btn_ss_documents["state"] = tk.NORMAL
                 self.remove_result_section()
-                sys.exit()
+                return None
                 
 
         # create a list of tasks into json
@@ -454,7 +409,7 @@ class Application(tk.Frame):
         print(json_string)
         return json_string
 
-    def read_screen_layout(self, file, sheetName, keywordsHeader):
+    def read_screen_layout(self, file: str, sheetName: str, keywordsHeader: list[str]) -> str | None:
         try:
             workbook = load_workbook(filename=file)
             sheet_names = [] # Initialize an empty list for sheet names
@@ -527,7 +482,7 @@ class Application(tk.Frame):
             messagebox.showerror("Error", f"An unexpected error occurred: {e}")
             return None
 
-    def read_application_detailed_specification_files(self, file_path):
+    def read_application_detailed_specification_files(self, file_path: str) -> list | None:
         # Read application detailed specification files
         try:
             workbook = load_workbook(filename=file_path, data_only=True) # Load the workbook
@@ -576,100 +531,9 @@ class Application(tk.Frame):
             messagebox.showerror("Error", f"Failed to read Excel file: {e}")
             return None
     
-    # def event_Process_Sequence_Diagram_History_Files(self, file_path):
-    #     try:
-    #         sheet_names = [] # Initialize an empty list for sheet names
-    #         workbook = load_workbook(file_path, data_only=True)
 
-    #         # Iterate through each worksheet in the workbook
-    #         for sheet in workbook.worksheets:
-    #             sheet_names.append(sheet.title)
-    #             print(sheet.title)
-
-    #         # # Check if the file is an Application Detailed Specification file
-    #         self.check_file_validity(sheet_names, workbook, file_path)
-            
-    #         sheet = workbook[sheet_names[2]] # Select the third sheet
-
-    #         # Extract images from the Excel file
-    #         images = []
-    #         for idx, image in enumerate(sheet._images):
-    #             # Convert the openpyxl image to a PIL image
-    #             image_stream = io.BytesIO(image._data())
-    #             img = Image.open(image_stream)
-    #             images.append(img)
-                
-    #             # Save the image to a file
-    #             img.save(f'image_{idx + 1}.png')
-
-    #         image_path = "image_1.png"
-    #         #description = self.describe_image(image_path)
-    #         # Delete the file
-    #         # os.remove(image_path)
-    #         return image_path
-    #         # print(description)
-
-    #     except FileNotFoundError:
-    #         messagebox.showerror("Error", config.error_message["FileNotFoundError"])
-    #         return None
-    #     except pd.errors.EmptyDataError:
-    #         messagebox.showerror("Error", config.error_message["EmptyDataError"])
-    #         return None
-    #     except pd.errors.ParserError:
-    #         messagebox.showerror("Error", config.error_message["ParserError"])
-    #         return None
-    #     except Exception as e:
-    #         messagebox.showerror("Error", f"Failed to read Excel file: {e}")
-    #         return None
-
-    # def describe_image(self, img):
-    #     encoded_image = self.encode_image(img)
     
-    #     headers = {
-    #         "Content-type": "application/json",
-    #         "api-key": self.api_key
-    #     }
-    
-    #     # data = {
-    #     #     "messages": [
-    #     #         {"role": "user", "content": [
-    #     #             {"type": "text", "text": "Please describe the image below."},
-    #     #             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{encoded_image}"}}
-    #     #         ]}
-    #     #     ]
-    #     # }
-
-    #     data = {
-    #         "contents": [
-    #             {
-    #                 "role": "user",
-    #                 "parts": [
-    #                     {
-    #                         "inlineData": {
-    #                             "mimeType": "image/jpeg",
-    #                             "data": encoded_image
-    #                         }
-    #                     },
-    #                     {
-    #                         "text": "What is shown this image?"
-    #                     }
-    #                 ]
-    #             }
-    #         ]
-    #     }
-    
-    #     # response = requests.post("https://ai-foundation-api.app/ai-foundation/chat-ai/gpt4", headers=headers, json=data)
-    #     response = requests.post("https://api.ai-service.global.fujitsu.com/ai-foundation/chat-ai/gemini/pro:generateContent", headers=headers, json=data)
-    #     response_json = response.json()
-    #     # print(response_json)
-    #     # return response_json["choices"][0]["message"]["content"]
-    #     return response_json['candidates'][0]['content']['parts'][0]['text']
-
-    # def encode_image(self,img):
-    #     with open(img, "rb") as image_file:
-    #         return base64.b64encode(image_file.read()).decode('utf-8')
-    
-    def check_file_validity(self, sheet_names, workbook, file_path):
+    def check_file_validity(self, sheet_names: list[str], workbook, file_path: str) -> str:
         error_msg = ""
         file_size = os.path.getsize(file_path)
         max_mb = 25 * 1024 * 1024  # 25MB in bytes
@@ -711,7 +575,7 @@ class Application(tk.Frame):
 
                     elif "Event Process Sequence Diagram History" in file_path and "イベント処理シーケンス図\n/Event Process Sequence Diagram" not in filtered_row:
                         # raise ValueError("The file is not an Event Process Sequence Diagram History file")
-                        error_msg == "Error! The file is not an Event Process Sequence Diagram History file. Please upload the correct file and start the process again"
+                        error_msg = "Error! The file is not an Event Process Sequence Diagram History file. Please upload the correct file and start the process again"
                         # self.browse_file(self.input_details_entry, "SS Documents")
                         self.is_file_valid=False
                         return error_msg
@@ -719,7 +583,7 @@ class Application(tk.Frame):
                     else:
                         return "File is valid"
         
-    def convert_app_detailed_spec_data(self, app_detailed_spec_data, file_path):
+    def convert_app_detailed_spec_data(self, app_detailed_spec_data: list, file_path: str) -> str:
         is_description = False
         is_new_method = False
         is_inner_description = False
@@ -868,7 +732,7 @@ class Application(tk.Frame):
 
     
     
-    def request_task_details(self, tasks_list_json):
+    def request_task_details(self, tasks_list_json: str) -> None:
         try:
             # # Call the method to create the status section
             # self.create_result_section()
@@ -906,6 +770,7 @@ class Application(tk.Frame):
             }
         
             # Send the POST request
+            response = None
             response = requests.post(api_endpoint, headers=headers, json=data)
             response.raise_for_status()  # Raise an exception for HTTP errors
             # os.remove(self.flowchart_image_path)
@@ -942,8 +807,9 @@ class Application(tk.Frame):
             if "Too Large" in str(e):
                 messagebox.showerror("Error", config.error_message["FileTooBig"])
             else:
-                print("Failed to get a response from ChatAI. Status code:", response.status_code)
-                print("Response content:", response.text)
+                if response is not None:
+                    print("Failed to get a response from ChatAI. Status code:", response.status_code)
+                    print("Response content:", response.text)
                 messagebox.showerror("Error", f"Failed to send data to ChatAI: {e}")
 
         except ValueError as ve:
@@ -955,7 +821,7 @@ class Application(tk.Frame):
             
 
     # Send data for wbs - request 2
-    def send_data_to_chatai(self):
+    def send_data_to_chatai(self) -> None:
         start_date_str=self.start_date_entry.get_date()
         end_date_str=self.end_date_entry.get_date()
         start_date = start_date_str.strftime('%m/%d/%Y')
@@ -1004,6 +870,7 @@ class Application(tk.Frame):
             }
 
             # Send the POST request
+            response = None
             response = requests.post(api_endpoint, headers=headers, json=payload)
             response.raise_for_status()  # Raise an exception for HTTP errors
 
@@ -1025,8 +892,9 @@ class Application(tk.Frame):
             if "Too Large" in str(e):
                 messagebox.showerror("Error", config.error_message["FileTooBig"])
             else:
-                print("Failed to get a response from ChatAI. Status code:", response.status_code)
-                print("Response content:", response.text)
+                if response is not None:
+                    print("Failed to get a response from ChatAI. Status code:", response.status_code)
+                    print("Response content:", response.text)
                 messagebox.showerror("Error", f"Failed to send data to ChatAI: {e}")
 
         except ValueError as ve:
@@ -1039,7 +907,7 @@ class Application(tk.Frame):
             if hasattr(self, 'progress'):
                 self.progress.grid_forget()
 
-    def download_result(self):
+    def download_result(self) -> None:
         try:
             # Define the destination file path in the Downloads folder
             downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
@@ -1061,7 +929,7 @@ class Application(tk.Frame):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save file: {e}")
 
-    def validate_api_key(self, api_key):
+    def validate_api_key(self, api_key: str) -> str | None:
         pattern = r'^[A-Za-z0-9]{48}$'        
         if not api_key:
             messagebox.showerror("Error", config.error_message["APIEmptyField"])
@@ -1075,7 +943,7 @@ class Application(tk.Frame):
             messagebox.showerror("Error", config.error_message["InvalidKeyError"])
             return None
         
-    def create_wbs(self, content, start_date, end_date):
+    def create_wbs(self, content: str, start_date, end_date) -> None:
         # Extract the date value
         start_date_value = start_date.get_date()
         end_date_value = end_date.get_date()
@@ -1149,7 +1017,8 @@ class Application(tk.Frame):
         print(f"DataFrame saved to {output_path}")
 
 
-root = tk.Tk()
-root.title("WBS Enhancement")
-app = Application(master=root)
-app.mainloop()
+if __name__ == '__main__':
+    root = tk.Tk()
+    root.title("WBS Enhancement")
+    app = Application(master=root)
+    app.mainloop()
