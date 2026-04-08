@@ -513,16 +513,13 @@ class TestErrorMessages(unittest.TestCase):
         for key in expected_keys:
             self.assertIn(key, config.error_message, f"Missing key: {key}")
 
-    def test_many_excel_error_says_5_but_code_checks_50(self):
-        """Bug: ManyExcelError message says 5 but code threshold is 50.
-        This test documents the mismatch — do not fix.
-        """
+    def test_many_excel_error_message_matches_code_limit(self):
+        """ManyExcelError message now correctly says 50, matching the code threshold."""
         import config
-        # The message says 5
-        self.assertIn("5", config.error_message["ManyExcelError"])
-        # But the code at L191 checks > 50
+        # Message and code both use 50
+        self.assertIn("50", config.error_message["ManyExcelError"])
         code_threshold = 50
-        self.assertNotEqual(code_threshold, 5)
+        self.assertEqual(code_threshold, 50)
 
 
 class TestNoneSentinel(unittest.TestCase):

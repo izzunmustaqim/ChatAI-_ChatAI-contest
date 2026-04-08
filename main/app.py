@@ -37,6 +37,13 @@ from wbs_writer import (
 )
 
 
+# Template download URL — keep auth tokens out of source code
+TEMPLATE_DOWNLOAD_URL = os.environ.get(
+    "WBS_TEMPLATE_URL",
+    "https://fujitsu.sharepoint.com/teams/Asia-42f6e454-ChatAIContestAPG",
+)
+
+
 class Application(tk.Frame):
     def __init__(self, master=None):
         super().__init__(master)
@@ -50,10 +57,10 @@ class Application(tk.Frame):
         self.ss_folder_file = []
         self.screen_layout_json = None
         self.app_detailed_spec_data_converted_json = None
-        self.flowchart_image_path = None
         self.task_details_response = None
         self.task_list = []
         self.is_file_valid = True
+        self._progress_running = False
 
     # ------------------------------------------------------------------ #
     #  Widget creation & layout                                           #
@@ -83,7 +90,7 @@ class Application(tk.Frame):
         text_widget.insert(tk.END, "Download template here: Members_skillset.xlsx")
         text_widget.tag_add("link", "1.23", "1.end")
         text_widget.tag_config("link", foreground="blue", underline=True)
-        text_widget.tag_bind("link", "<Button-1>", lambda e, url="https://fujitsu.sharepoint.com/:x:/r/teams/Asia-42f6e454-ChatAIContestAPG/Shared%20Documents/ChatAI%20Contest%20APG/Deliverable/Sprint%201/MEMBERS_SKILLSET.xlsx?d=w3087fb3ba54e43bab309789ad185a9a7&csf=1&web=1&e=5ekEi5": self.open_url(url))
+        text_widget.tag_bind("link", "<Button-1>", lambda e, url=TEMPLATE_DOWNLOAD_URL: self.open_url(url))
 
         # Input details (SS documents)
         tk.Label(self, text="Input Details").grid(row=5, column=0, padx=10, pady=5, sticky='w')
@@ -161,12 +168,23 @@ class Application(tk.Frame):
             self.progress.grid_forget()
 
     def process_step(self) -> None:
+        if not self._progress_running:
+            return  # stop the timer loop
         current_value = self.progress["value"]
         if current_value < 100:
             self.progress["value"] = current_value + 1
         else:
             self.progress["value"] = 0
         self.master.after(100, self.process_step)
+
+    def _start_progress(self) -> None:
+        """Start the progress bar animation (safe to call from any thread)."""
+        self._progress_running = True
+        self.master.after(0, self.process_step)
+
+    def _stop_progress(self) -> None:
+        """Stop the progress bar animation."""
+        self._progress_running = False
 
     # ------------------------------------------------------------------ #
     #  User interaction handlers                                          #
@@ -179,10 +197,6 @@ class Application(tk.Frame):
             messagebox.showerror("Error", "End date cannot be before start date")
             self.end_date_entry.set_date(start_date)
 
-    def update_file_selection(self):
-        self.input_details_entry.config(state=tk.NORMAL)
-        self.input_details_entry.delete(1.0, tk.END)
-        self.input_details_entry.config(state=tk.DISABLED)
 
     def browse_file(self, entry, label):
         # if the process is repeated - clear the list first
@@ -194,10 +208,7 @@ class Application(tk.Frame):
             if label == "Members skill set":
                 file_path = filedialog.askopenfilename(filetypes=file_types)
                 if file_path:
-                    if label == "Members skill set":
-                        self.skillset_file = file_path
-                    else:
-                        self.task_details_file = file_path
+                    self.skillset_file = file_path
                 else:
                     messagebox.showerror("Error", "No file is selected.")
 
@@ -212,11 +223,12 @@ class Application(tk.Frame):
                 if folder_path:
                     self.ss_document_folder = folder_path
                     # List all file paths in the selected folder and sub-folders
-                    folder_file_paths = []
-                    for root, _, files in os.walk(folder_path):
-                        for file in files:
-                            if file.endswith('.xlsx') or file.endswith('.xls'):
-                                folder_file_paths.append(os.path.join(root, file))
+                    folder_file_paths = [
+                        os.path.join(root, f)
+                        for root, _, files in os.walk(folder_path)
+                        for f in files
+                        if f.endswith(('.xlsx', '.xls'))
+                    ]
 
                     if len(folder_file_paths) > 50:
                         messagebox.showerror("Error", config.error_message["ManyExcelError"])
@@ -276,8 +288,8 @@ class Application(tk.Frame):
         # if repeat the process, clear the result section first
         self.remove_result_section()
 
-        self.api_key = self.validate_api_key(self.api_key_entry.get())
-        if not self.api_key:
+        api_key = self.validate_api_key(self.api_key_entry.get())
+        if not api_key:
             return False
 
         self._disable_buttons()
@@ -291,10 +303,10 @@ class Application(tk.Frame):
         tasks_json = self.read_ss_folder_files()
 
         # send first request to get complexity and priority
-        self.request_task_details(tasks_json)
+        self.request_task_details(api_key, tasks_json)
 
         # send second request to get wbs details
-        self.send_data_to_chatai()
+        self.send_data_to_chatai(api_key)
 
         self._enable_buttons()
 
@@ -342,7 +354,7 @@ class Application(tk.Frame):
 
         self.progress["value"] = 0
         self.status_label.config(text="Processing input data...")
-        self.master.after(100, self.process_step)
+        self._start_progress()
 
         # Variables to store file paths based on keywords
         application_detailed_specification_files = []
@@ -356,7 +368,7 @@ class Application(tk.Frame):
                 is_ss_doc = True
                 screen_layout_files.append(file_path)
 
-        if is_ss_doc == False:
+        if not is_ss_doc:
             messagebox.showerror("Error", "No SS documents found in the folder. Please choose the correct folder and try again")
             self.browse_file(self.input_details_entry, "SS Documents")
             self._enable_buttons()
@@ -393,7 +405,7 @@ class Application(tk.Frame):
                     messagebox.showerror("Error", f"An unexpected error occurred: {e}")
                     return None
             else:
-                messagebox.showerror("Error", f"{error_message}")
+                messagebox.showerror("Error", error_message)
                 self.browse_file(self.input_details_entry, "SS Documents")
                 self._enable_buttons()
                 self.remove_result_section()
@@ -428,7 +440,7 @@ class Application(tk.Frame):
                     messagebox.showerror("Error", f"Failed to read Excel file: {e}")
                     return None
             else:
-                messagebox.showerror("Error", f"{error_message}")
+                messagebox.showerror("Error", error_message)
                 self.browse_file(self.input_details_entry, "SS Documents")
                 self._enable_buttons()
                 self.remove_result_section()
@@ -446,11 +458,11 @@ class Application(tk.Frame):
     #  API requests — delegates to api_client                             #
     # ------------------------------------------------------------------ #
 
-    def request_task_details(self, tasks_list_json: str) -> None:
+    def request_task_details(self, api_key: str, tasks_list_json: str) -> None:
         try:
             self.progress["value"] = 0
             self.status_label.config(text="Sending request to get task complexity...")
-            self.master.after(100, self.process_step)
+            self._start_progress()
 
             prompt = config.prompt_list_task.format(
                 screen_layout_json=self.screen_layout_json,
@@ -458,7 +470,7 @@ class Application(tk.Frame):
                 tasks_list_json=tasks_list_json,
             )
 
-            content = send_gemini_request(self.api_key, prompt)
+            content = send_gemini_request(api_key, prompt)
             self.task_details_response = content
             print("Response from chat AI for the Tasks Complexity")
             print(content)
@@ -473,9 +485,10 @@ class Application(tk.Frame):
             print(ve)
             messagebox.showerror("Error", str(ve))
         finally:
+            self._stop_progress()
             self.progress["value"] = 100
 
-    def send_data_to_chatai(self) -> None:
+    def send_data_to_chatai(self, api_key: str) -> None:
         start_date_str = self.start_date_entry.get_date()
         end_date_str = self.end_date_entry.get_date()
         start_date = start_date_str.strftime('%m/%d/%Y')
@@ -485,7 +498,7 @@ class Application(tk.Frame):
             task_details_data = self.task_details_response
             self.progress["value"] = 0
             self.status_label.config(text="Process Task Details has completed successfully. Sending request to get the WBS details...")
-            self.master.after(100, self.process_step)
+            self._start_progress()
 
             prompt = config.prompt.format(
                 task_details_data=task_details_data,
@@ -499,7 +512,7 @@ class Application(tk.Frame):
                 plan_end_date="End date Example",
             )
 
-            content = send_gemini_request(self.api_key, prompt)
+            content = send_gemini_request(api_key, prompt)
             self.create_wbs(content, self.start_date_entry, self.end_date_entry)
             print(content)
 
@@ -513,6 +526,7 @@ class Application(tk.Frame):
             print(ve)
             messagebox.showerror("Error", str(ve))
         finally:
+            self._stop_progress()
             self.status_label.config(text="Process has completed successfully. You may download the WBS file using the download button below.")
             self.progress["value"] = 100
             self.download_button.grid()

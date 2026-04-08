@@ -484,6 +484,8 @@ class TestSendGeminiRequest:
                     {"role": "user", "parts": [{"text": prompt}]}
                 ]
             },
+            timeout=(5, 60),
+            verify=True,
         )
 
     def test_http_error_raises_request_exception(self, mocker):
@@ -780,7 +782,7 @@ class TestConfig:
         import config
         assert key in config.error_message, f"Missing error key: {key}"
 
-    def test_many_excel_error_message_mismatch(self):
-        """Documents the known mismatch: message says '5' but code checks > 50."""
+    def test_many_excel_error_message_matches_code_limit(self):
+        """ManyExcelError message now correctly says 50, matching the code."""
         import config
-        assert "5" in config.error_message["ManyExcelError"]
+        assert "50" in config.error_message["ManyExcelError"]

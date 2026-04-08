@@ -45,7 +45,11 @@ def send_gemini_request(api_key: str, prompt: str) -> str:
         ]
     }
 
-    response = requests.post(API_ENDPOINT, headers=headers, json=data)
+    response = requests.post(
+        API_ENDPOINT, headers=headers, json=data,
+        timeout=(5, 60),  # (connect, read) timeout in seconds
+        verify=True,      # explicitly enforce SSL certificate verification
+    )
     response.raise_for_status()
 
     analysis_result = response.json()

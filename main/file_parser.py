@@ -66,7 +66,7 @@ def check_file_validity(
 
         for row in sheet_temp.iter_rows(values_only=True):
             filtered_row = [cell for cell in row if cell is not None]
-            if filtered_row == []:
+            if not filtered_row:
                 return (False, "Error! The screen layout files are empty. Please upload the correct file and start the process again")
 
             elif "Screen Layout" in file_path and '画面レイアウト\n/Screen Layout' not in filtered_row:
@@ -122,16 +122,13 @@ def parse_screen_layout(
     start_found = False
 
     for row in sheet.iter_rows(values_only=True):
-        filtered_row = []
-        for cell in row:
-            if cell is not None:
-                filtered_row.append(cell)
+        filtered_row = [cell for cell in row if cell is not None]
 
         if any(keyword in str(cell) for keyword in keywords_header for cell in filtered_row):
             start_found = True
 
         if start_found:
-            if filtered_row != [] and '画面項目名\n/Screen Item Name' not in filtered_row:
+            if filtered_row and '画面項目名\n/Screen Item Name' not in filtered_row:
                 screen_layout_data.append(filtered_row)
 
     screen_name = extract_screen_name(file) + "_UI"
@@ -193,7 +190,7 @@ def parse_app_detailed_spec(file_path: str) -> list:
         if any(ek in str(cell) for ek in end_keyword for cell in filtered_row):
             start_found = False
         if start_found:
-            if filtered_row != []:
+            if filtered_row:
                 application_detailed_spec_data.append(filtered_row)
 
     return application_detailed_spec_data
